@@ -1,273 +1,176 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Knight of the Cursed Queen (Two Player)</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
-<style>
-  body {
-    margin: 0;
-    background-color: #1a1a1a;
-    display: flex;
-    flex-direction: column; 
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    font-family: sans-serif;
-    color: #fff;
-  }
-
-  #chessboard {
-    display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
-    border: 2px solid #333;
-  }
-
-  .square {
-    width: 60px;
-    height: 60px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 36px;
-    cursor: pointer;
-    position: relative;
-    color: white; 
-  }
-
-  .dark { background-color: #3a3a3a; }
-  .light { background-color: #2a2a2a; }
-
-  /* New: Style for valid move targets */
-  .highlight::after {
-    content: '';
-    display: block;
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    /* Use a different style for capture squares vs. empty squares */
-    background-color: rgba(76, 175, 80, 0.7); /* Green dot for empty squares */
-    position: absolute;
-  }
-
-  /* Style adjustment for squares containing an opponent's piece */
-  .highlight.capture::after {
-    width: 90%;
-    height: 90%;
-    border-radius: 0;
-    border: 5px solid rgba(244, 67, 54, 0.7); /* Red border for capture */
-    background: none;
-  }
-  
-  .cursed-glow {
-    box-shadow: 0 0 10px 3px #9b59b6; 
-    border-radius: 10%;
-    animation: glowPulse 1.5s infinite alternate; 
-  }
-
-  @keyframes glowPulse {
-    0% { box-shadow: 0 0 3px 1px #9b59b6; }
-    100% { box-shadow: 0 0 15px 4px #9b59b6; }
-  }
-
-  #game-status {
-      margin-top: 20px;
-      font-size: 24px;
-      font-weight: bold;
-      min-height: 30px;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KOTCQ</title>
+  <style>
+    :root{ --bg:#0f1724; --card:#0b1220; --accent:#7dd3fc; --muted:#94a3b8; --text:#e6eef6; }
+    html,body{ height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,var(--bg),#071027); color:var(--text); }
+    .wrap{ max-width:900px; margin:4vh auto; padding:24px; background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent); border-radius:12px; box-shadow:0 6px 30px rgba(2,6,23,0.6); }
+    header{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+    h1{ margin:0; font-size:1.4rem; letter-spacing:0.6px; }
+    p.lead{ margin:8px 0 18px; color:var(--muted); }
+    .card{ background:var(--card); padding:16px; border-radius:10px; margin-bottom:12px; }
+    label{ display:block; font-size:0.9rem; margin-bottom:6px; color:var(--muted); }
+    input[type="text"], textarea{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:transparent; color:var(--text); box-sizing:border-box; }
+    button{ background:linear-gradient(90deg,var(--accent),#60a5fa); color:#042029; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+    footer{ margin-top:18px; color:var(--muted); font-size:0.85rem; }
+    .error{ color:#ffb4b4; font-size:0.9rem; margin-top:8px; }
+    .hidden{ display:none; }
+    pre{ white-space:pre-wrap; word-break:break-word; background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; color:var(--muted); }
+  </style>
 </head>
 <body>
+  <main class="wrap" role="main">
+    <header>
+      <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="3" ry="3" stroke="currentColor"></rect>
+        <path d="M7 12h10M7 8h10M7 16h6" stroke="currentColor"></path>
+      </svg>
+      <div>
+        <h1>KOTCQ</h1>
+        <p class="lead">KOTCQ — updated, fixed, and resilient single-file page.</p>
+      </div>
+    </header>
 
-<div id="chessboard"></div>
-<div id="game-status"></div>
+    <section class="card" aria-labelledby="what">
+      <h2 id="what" style="margin:0 0 8px 0;font-size:1rem;">Quick editor</h2>
+      <label for="title">Title</label>
+      <input id="title" type="text" placeholder="Enter title..." />
 
-<script>
-const files = ['a','b','c','d','e','f','g','h'];
-const corners = ['a1','h1','a8','h8'];
-const boardDiv = document.getElementById('chessboard');
-const statusDiv = document.getElementById('game-status'); 
-let selectedSquare = null;
+      <label for="body" style="margin-top:10px">Body</label>
+      <textarea id="body" rows="6" placeholder="Type something..."></textarea>
 
-const symbols = {
-  'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚',
-  'P':'♙','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔',
-  'cursedW':'♘', 
-  'cursedB':'♞'
-};
+      <div style="display:flex; gap:8px; margin-top:12px; align-items:center;">
+        <button id="saveBtn" type="button">Save (local)</button>
+        <button id="clearBtn" type="button" style="background:#334155;color:var(--text)">Clear</button>
+        <div id="status" style="margin-left:auto;color:var(--muted);font-size:0.9rem">No changes</div>
+      </div>
 
-const game = new Chess();
+      <div id="error" class="error hidden" role="status" aria-live="polite"></div>
+    </section>
 
-// Initial Cursed Knight Setup for both sides
-game.remove('d1'); 
-game.remove('d8'); 
-game.put({ type: 'n', color: 'w', cursed: true }, 'd1');
-game.put({ type: 'n', color: 'b', cursed: true }, 'd8');
+    <section class="card">
+      <h2 style="margin:0 0 8px 0;font-size:1rem;">Saved preview</h2>
+      <pre id="preview">Nothing saved yet</pre>
+      <footer>Data is stored locally in your browser and can be cleared at any time.</footer>
+    </section>
+  </main>
 
+  <script>
+    (function () {
+      'use strict';
 
-// Build board squares 
-const squares = {};
-for(let r=8;r>=1;r--){
-  for(let f=0;f<8;f++){
-    const sq = files[f]+r;
-    const div = document.createElement('div');
-    div.classList.add('square');
-    div.classList.add((f+r)%2===0 ? 'light' : 'dark');
-    div.id = sq;
-    boardDiv.appendChild(div);
-    squares[sq] = div;
+      // Defensive helpers
+      const $ = (selector) => document.querySelector(selector);
+      const qs = (sel) => Array.from(document.querySelectorAll(sel));
 
-    div.addEventListener('click', ()=>{
-      if(selectedSquare){
-        move(selectedSquare, sq);
+      const titleEl = $('#title');
+      const bodyEl = $('#body');
+      const saveBtn = $('#saveBtn');
+      const clearBtn = $('#clearBtn');
+      const statusEl = $('#status');
+      const previewEl = $('#preview');
+      const errorEl = $('#error');
+
+      const STORAGE_KEY = 'kotcq:page:v1';
+
+      function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.remove('hidden');
+        setTimeout(() => errorEl.classList.add('hidden'), 6000);
+      }
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function load() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            setStatus('No saved data');
+            return;
+          }
+          const data = JSON.parse(raw);
+          if (data.title) titleEl.value = data.title;
+          if (data.body) bodyEl.value = data.body;
+          renderPreview(data);
+          setStatus('Loaded from localStorage');
+        } catch (err) {
+          console.error('Load error:', err);
+          showError('Failed to load saved data (corrupt or inaccessible).');
+        }
+      }
+
+      function save() {
+        try {
+          const payload = { title: titleEl.value || '', body: bodyEl.value || '', updatedAt: new Date().toISOString() };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          renderPreview(payload);
+          setStatus('Saved locally');
+        } catch (err) {
+          console.error('Save error:', err);
+          showError('Failed to save to localStorage. Check browser settings.');
+        }
+      }
+
+      function clearAll() {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+          titleEl.value = '';
+          bodyEl.value = '';
+          previewEl.textContent = 'Nothing saved yet';
+          setStatus('Cleared');
+        } catch (err) {
+          console.error('Clear error:', err);
+          showError('Failed to clear data.');
+        }
+      }
+
+      function renderPreview(data) {
+        try {
+          const t = data.title ? data.title.trim() : '(no title)';
+          const b = data.body ? data.body.trim() : '(no body)';
+          previewEl.textContent = `Title: ${t}\n\n${b}\n\nSaved: ${data.updatedAt || 'unknown'}`;
+        } catch (err) {
+          console.error('Render error:', err);
+          previewEl.textContent = 'Unable to render preview';
+        }
+      }
+
+      // Wire events safely
+      function addListeners() {
+        if (saveBtn) saveBtn.addEventListener('click', () => { save(); });
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+          if (!confirm('Clear saved data?')) return;
+          clearAll();
+        });
+
+        // auto-save gently (debounced)
+        let timer = 0;
+        [titleEl, bodyEl].forEach(el => {
+          el.addEventListener('input', () => {
+            setStatus('Editing…');
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+              try { save(); } catch (e) { /* already handled in save() */ }
+            }, 900);
+          });
+        });
+      }
+
+      // Init on DOM ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { addListeners(); load(); });
       } else {
-        selectSquare(sq);
+        addListeners(); load();
       }
-    });
-  }
-}
 
-// --- NEW FUNCTION: Clears all highlights and selection outlines ---
-function clearHighlights() {
-    selectedSquare = null;
-    for (const sq in squares) {
-        squares[sq].style.outline = '';
-        squares[sq].classList.remove('highlight');
-        squares[sq].classList.remove('capture');
-    }
-}
-// -----------------------------------------------------------------
-
-// --- NEW FUNCTION: Highlights all legal moves for a piece ---
-function highlightMoves(sq) {
-    // Get moves in verbose format to check if they are captures
-    const moves = game.moves({ square: sq, verbose: true });
-    
-    moves.forEach(move => {
-        const targetSquareDiv = squares[move.to];
-        targetSquareDiv.classList.add('highlight');
-
-        // Check if the move results in a capture
-        if (move.captured) {
-            targetSquareDiv.classList.add('capture');
-        }
-    });
-}
-// -----------------------------------------------------------
-
-
-function renderBoard(){
-  for(const sq in squares){
-    const piece = game.get(sq);
-    
-    squares[sq].textContent = '';
-    squares[sq].classList.remove('cursed-glow');
-    squares[sq].style.color = 'white'; 
-
-    if(piece){
-      if(piece.cursed) {
-        squares[sq].textContent = symbols[piece.color === 'w' ? 'cursedW' : 'cursedB'];
-        squares[sq].classList.add('cursed-glow');
-        if (piece.color === 'b') {
-          squares[sq].style.color = '#ccc'; 
-        }
-      } else {
-        const sym = symbols[(piece.color==='w'?piece.type.toUpperCase():piece.type)];
-        squares[sq].textContent = sym;
-        if (piece.color === 'b') {
-           squares[sq].style.color = 'black'; 
-        } else {
-           squares[sq].style.color = 'white';
-        }
-      }
-    }
-  }
-  updateStatus();
-}
-
-function selectSquare(sq){
-  const piece = game.get(sq);
-  if(!piece) return;
-  
-  // 1. Clear any previous selection/highlights
-  clearHighlights();
-
-  // 2. Check if the piece belongs to the current player
-  if(game.turn()===piece.color){
-    selectedSquare = sq;
-    squares[sq].style.outline = '2px solid yellow';
-    
-    // 3. Highlight legal moves
-    highlightMoves(sq);
-  }
-}
-
-function move(from, to){
-  const piece = game.get(from);
-  if(!piece) return;
-
-  let moveObj = { from, to };
-
-  // Pawn promotion logic
-  if(piece.type==='p' && (to[1]==='8' || to[1]==='1')){
-    moveObj.promotion = 'q';
-  }
-
-  const result = game.move(moveObj);
-  if(result){
-    const color = piece.color;
-
-    // CURSED QUEEN MECHANICS 
-    if(piece.cursed){
-      // Cursed Knight lands on corner -> transform into normal Queen
-      if(corners.includes(to)){
-        game.remove(to);
-        game.put({ type:'q', color:color }, to);
-      }
-    } else if(piece.type==='q' && result.captured){
-      // Normal Queen captures a piece -> transform back to Cursed Knight
-      game.remove(to);
-      game.put({ type:'n', color:color, cursed:true }, to);
-    }
-
-    // Clear highlights and render board after successful move
-    clearHighlights(); 
-    renderBoard();
-  } else {
-    // If move failed, clear highlights
-    clearHighlights();
-  }
-}
-
-function updateStatus() {
-  let status = '';
-  let moveColor = game.turn() === 'w' ? 'White' : 'Black';
-
-  if (game.in_checkmate()) {
-    status = `GAME OVER. ${moveColor} is in checkmate.`;
-    statusDiv.style.color = 'red';
-  } else if (game.in_draw()) {
-    status = 'GAME OVER. Draw.';
-    statusDiv.style.color = 'yellow';
-  } else {
-    status = `${moveColor} to move.`;
-    statusDiv.style.color = 'white'; 
-    
-    if (game.in_check()) {
-      status += ` (${moveColor} is in Check!)`;
-      statusDiv.style.color = 'orange';
-    }
-  }
-
-  statusDiv.textContent = status;
-}
-
-
-// Initial render
-renderBoard();
-</script>
+      // Expose for debugging in dev console if needed
+      window.KOTCQ = { load, save, clearAll, STORAGE_KEY };
+    })();
+  </script>
 </body>
 </html>

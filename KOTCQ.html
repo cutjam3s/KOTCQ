@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knight of the Cursed Queen (Two Player)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
+<style>
+  body {
+    margin: 0;
+    background-color: #1a1a1a;
+    display: flex;
+    flex-direction: column; 
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: sans-serif;
+    color: #fff;
+  }
+
+  #chessboard {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    border: 2px solid #333;
+  }
+
+  .square {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 36px;
+    cursor: pointer;
+    position: relative;
+    color: white; 
+  }
+
+  .dark { background-color: #3a3a3a; }
+  .light { background-color: #2a2a2a; }
+
+  /* New: Style for valid move targets */
+  .highlight::after {
+    content: '';
+    display: block;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    /* Use a different style for capture squares vs. empty squares */
+    background-color: rgba(76, 175, 80, 0.7); /* Green dot for empty squares */
+    position: absolute;
+  }
+
+  /* Style adjustment for squares containing an opponent's piece */
+  .highlight.capture::after {
+    width: 90%;
+    height: 90%;
+    border-radius: 0;
+    border: 5px solid rgba(244, 67, 54, 0.7); /* Red border for capture */
+    background: none;
+  }
+  
+  .cursed-glow {
+    box-shadow: 0 0 10px 3px #9b59b6; 
+    border-radius: 10%;
+    animation: glowPulse 1.5s infinite alternate; 
+  }
+
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 3px 1px #9b59b6; }
+    100% { box-shadow: 0 0 15px 4px #9b59b6; }
+  }
+
+  #game-status {
+      margin-top: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      min-height: 30px;
+  }
+</style>
+</head>
+<body>
+
+<div id="chessboard"></div>
+<div id="game-status"></div>
+
+<script>
+const files = ['a','b','c','d','e','f','g','h'];
+const corners = ['a1','h1','a8','h8'];
+const boardDiv = document.getElementById('chessboard');
+const statusDiv = document.getElementById('game-status'); 
+let selectedSquare = null;
+
+const symbols = {
+  'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚',
+  'P':'♙','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔',
+  'cursedW':'♘', 
+  'cursedB':'♞'
+};
+
+const game = new Chess();
+
+// Initial Cursed Knight Setup for both sides
+game.remove('d1'); 
+game.remove('d8'); 
+game.put({ type: 'n', color: 'w', cursed: true }, 'd1');
+game.put({ type: 'n', color: 'b', cursed: true }, 'd8');
+
+
+// Build board squares 
+const squares = {};
+for(let r=8;r>=1;r--){
+  for(let f=0;f<8;f++){
+    const sq = files[f]+r;
+    const div = document.createElement('div');
+    div.classList.add('square');
+    div.classList.add((f+r)%2===0 ? 'light' : 'dark');
+    div.id = sq;
+    boardDiv.appendChild(div);
+    squares[sq] = div;
+
+    div.addEventListener('click', ()=>{
+      if(selectedSquare){
+        move(selectedSquare, sq);
+      } else {
+        selectSquare(sq);
+      }
+    });
+  }
+}
+
+// --- NEW FUNCTION: Clears all highlights and selection outlines ---
+function clearHighlights() {
+    selectedSquare = null;
+    for (const sq in squares) {
+        squares[sq].style.outline = '';
+        squares[sq].classList.remove('highlight');
+        squares[sq].classList.remove('capture');
+    }
+}
+// -----------------------------------------------------------------
+
+// --- NEW FUNCTION: Highlights all legal moves for a piece ---
+function highlightMoves(sq) {
+    // Get moves in verbose format to check if they are captures
+    const moves = game.moves({ square: sq, verbose: true });
+    
+    moves.forEach(move => {
+        const targetSquareDiv = squares[move.to];
+        targetSquareDiv.classList.add('highlight');
+
+        // Check if the move results in a capture
+        if (move.captured) {
+            targetSquareDiv.classList.add('capture');
+        }
+    });
+}
+// -----------------------------------------------------------
+
+
+function renderBoard(){
+  for(const sq in squares){
+    const piece = game.get(sq);
+    
+    squares[sq].textContent = '';
+    squares[sq].classList.remove('cursed-glow');
+    squares[sq].style.color = 'white'; 
+
+    if(piece){
+      if(piece.cursed) {
+        squares[sq].textContent = symbols[piece.color === 'w' ? 'cursedW' : 'cursedB'];
+        squares[sq].classList.add('cursed-glow');
+        if (piece.color === 'b') {
+          squares[sq].style.color = '#ccc'; 
+        }
+      } else {
+        const sym = symbols[(piece.color==='w'?piece.type.toUpperCase():piece.type)];
+        squares[sq].textContent = sym;
+        if (piece.color === 'b') {
+           squares[sq].style.color = 'black'; 
+        } else {
+           squares[sq].style.color = 'white';
+        }
+      }
+    }
+  }
+  updateStatus();
+}
+
+function selectSquare(sq){
+  const piece = game.get(sq);
+  if(!piece) return;
+  
+  // 1. Clear any previous selection/highlights
+  clearHighlights();
+
+  // 2. Check if the piece belongs to the current player
+  if(game.turn()===piece.color){
+    selectedSquare = sq;
+    squares[sq].style.outline = '2px solid yellow';
+    
+    // 3. Highlight legal moves
+    highlightMoves(sq);
+  }
+}
+
+function move(from, to){
+  const piece = game.get(from);
+  if(!piece) return;
+
+  let moveObj = { from, to };
+
+  // Pawn promotion logic
+  if(piece.type==='p' && (to[1]==='8' || to[1]==='1')){
+    moveObj.promotion = 'q';
+  }
+
+  const result = game.move(moveObj);
+  if(result){
+    const color = piece.color;
+
+    // CURSED QUEEN MECHANICS 
+    if(piece.cursed){
+      // Cursed Knight lands on corner -> transform into normal Queen
+      if(corners.includes(to)){
+        game.remove(to);
+        game.put({ type:'q', color:color }, to);
+      }
+    } else if(piece.type==='q' && result.captured){
+      // Normal Queen captures a piece -> transform back to Cursed Knight
+      game.remove(to);
+      game.put({ type:'n', color:color, cursed:true }, to);
+    }
+
+    // Clear highlights and render board after successful move
+    clearHighlights(); 
+    renderBoard();
+  } else {
+    // If move failed, clear highlights
+    clearHighlights();
+  }
+}
+
+function updateStatus() {
+  let status = '';
+  let moveColor = game.turn() === 'w' ? 'White' : 'Black';
+
+  if (game.in_checkmate()) {
+    status = `GAME OVER. ${moveColor} is in checkmate.`;
+    statusDiv.style.color = 'red';
+  } else if (game.in_draw()) {
+    status = 'GAME OVER. Draw.';
+    statusDiv.style.color = 'yellow';
+  } else {
+    status = `${moveColor} to move.`;
+    statusDiv.style.color = 'white'; 
+    
+    if (game.in_check()) {
+      status += ` (${moveColor} is in Check!)`;
+      statusDiv.style.color = 'orange';
+    }
+  }
+
+  statusDiv.textContent = status;
+}
+
+
+// Initial render
+renderBoard();
+</script>
+</body>
+</html>

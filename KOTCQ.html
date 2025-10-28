@@ -48,7 +48,7 @@
         <div id="status" style="margin-left:auto;color:var(--muted);font-size:0.9rem">No changes</div>
       </div>
 
-      <div id="error" class="error hidden" role="status" aria-live="polite"></div>
+      <div id="error" class="error hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
     </section>
 
     <section class="card">
@@ -75,6 +75,7 @@
       const errorEl = $('#error');
 
       const STORAGE_KEY = 'kotcq:page:v1';
+      let listenersAdded = false;
 
       function showError(msg) {
         errorEl.textContent = msg;
@@ -86,6 +87,23 @@
         statusEl.textContent = text;
       }
 
+      // Normalize data loaded from storage to avoid runtime errors
+      function normalizeData(input) {
+        const normalized = { title: '', body: '', updatedAt: 'unknown' };
+        if (input && typeof input === 'object') {
+          if (Object.prototype.hasOwnProperty.call(input, 'title')) {
+            normalized.title = typeof input.title === 'string' ? input.title : String(input.title);
+          }
+          if (Object.prototype.hasOwnProperty.call(input, 'body')) {
+            normalized.body = typeof input.body === 'string' ? input.body : String(input.body);
+          }
+          if (Object.prototype.hasOwnProperty.call(input, 'updatedAt')) {
+            normalized.updatedAt = typeof input.updatedAt === 'string' ? input.updatedAt : String(input.updatedAt);
+          }
+        }
+        return normalized;
+      }
+
       function load() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
@@ -93,9 +111,10 @@
             setStatus('No saved data');
             return;
           }
-          const data = JSON.parse(raw);
-          if (data.title) titleEl.value = data.title;
-          if (data.body) bodyEl.value = data.body;
+          const parsed = JSON.parse(raw);
+          const data = normalizeData(parsed);
+          if (titleEl) titleEl.value = data.title || '';
+          if (bodyEl) bodyEl.value = data.body || '';
           renderPreview(data);
           setStatus('Loaded from localStorage');
         } catch (err) {
@@ -142,6 +161,9 @@
 
       // Wire events safely
       function addListeners() {
+        if (listenersAdded) return; // prevent double-binding
+        listenersAdded = true;
+
         if (saveBtn) saveBtn.addEventListener('click', () => { save(); });
         if (clearBtn) clearBtn.addEventListener('click', () => {
           if (!confirm('Clear saved data?')) return;
@@ -150,15 +172,17 @@
 
         // auto-save gently (debounced)
         let timer = 0;
-        [titleEl, bodyEl].forEach(el => {
-          el.addEventListener('input', () => {
-            setStatus('Editing…');
-            clearTimeout(timer);
-            timer = setTimeout(() => {
-              try { save(); } catch (e) { /* already handled in save() */ }
-            }, 900);
+        [titleEl, bodyEl]
+          .filter(Boolean)
+          .forEach(el => {
+            el.addEventListener('input', () => {
+              setStatus('Editing…');
+              clearTimeout(timer);
+              timer = setTimeout(() => {
+                try { save(); } catch (e) { /* already handled in save() */ }
+              }, 900);
+            });
           });
-        });
       }
 
       // Init on DOM ready

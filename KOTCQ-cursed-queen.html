@@ -7,6 +7,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
 <style>
   /* --- Global Styles --- */
+  :root { --sq: min(60px, calc(90vmin / 8)); }
+
   body {
     margin: 0;
     background-color: #1a1a1a;
@@ -14,7 +16,7 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     font-family: sans-serif;
     color: #fff;
   }
@@ -22,14 +24,14 @@
   /* --- Board & Square Styles --- */
   #chessboard {
     display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
+    grid-template-columns: repeat(8, var(--sq));
+    grid-template-rows: repeat(8, var(--sq));
     border: 2px solid #333;
   }
 
   .square {
-    width: 60px;
-    height: 60px;
+    width: var(--sq);
+    height: var(--sq);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -120,7 +122,7 @@
 <body>
 
 <div id="chessboard"></div>
-<div id="game-status"></div>
+<div id="game-status" role="status" aria-live="polite"></div>
 
 <script>
 const files = ['a','b','c','d','e','f','g','h'];
@@ -151,6 +153,9 @@ for(let r=8;r>=1;r--){
     div.classList.add('square');
     div.classList.add((f+r)%2===0 ? 'light' : 'dark');
     div.id = sq;
+    div.setAttribute('role', 'button');
+    div.setAttribute('tabindex', '0');
+    div.setAttribute('aria-label', `Empty ${sq}`);
     boardDiv.appendChild(div);
     squares[sq] = div;
 
@@ -160,6 +165,18 @@ for(let r=8;r>=1;r--){
         move(selectedSquare, sq);
       } else {
         selectSquare(sq);
+      }
+    });
+
+    // Keyboard activation (Enter/Space)
+    div.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (selectedSquare) {
+          move(selectedSquare, sq);
+        } else {
+          selectSquare(sq);
+        }
       }
     });
   }
@@ -207,6 +224,8 @@ function renderBoard(){
 
     // Clear selection outline
     squareDiv.style.removeProperty('outline');
+    // Default ARIA label
+    squareDiv.setAttribute('aria-label', `Empty ${sq}`);
 
     if(piece){
         const pieceEl = document.createElement('div');
@@ -218,6 +237,13 @@ function renderBoard(){
             pieceEl.classList.add('cursed-glow');
         }
 
+        // Update ARIA label for occupied squares
+        const nameMap = { k: 'King', q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight', p: 'Pawn' };
+        const colorName = piece.color === 'w' ? 'White' : 'Black';
+        const pieceName = nameMap[piece.type] || piece.type.toUpperCase();
+        const cursedSuffix = cursedSquares.has(sq) ? ' (cursed)' : '';
+        squareDiv.setAttribute('aria-label', `${colorName} ${pieceName}${cursedSuffix} on ${sq}`);
+
         squareDiv.appendChild(pieceEl);
         pieceElements[sq] = pieceEl;
     }
@@ -226,6 +252,7 @@ function renderBoard(){
 }
 
 function selectSquare(sq){
+  if (game.game_over()) return;
   const piece = game.get(sq);
   if(!piece) return;
 
@@ -239,6 +266,7 @@ function selectSquare(sq){
 }
 
 function move(from, to){
+  if (game.game_over()) { updateStatus(); return; }
   const piece = game.get(from);
   if(!piece) return;
 
@@ -271,11 +299,14 @@ function move(from, to){
       } else {
         cursedSquares.add(to);
       }
-    } else if(piece.type==='q' && result.captured){
-      // Normal Queen captures a piece -> transform back to Cursed Knight and becomes cursed
-      game.remove(to);
-      game.put({ type:'n', color:color }, to);
-      cursedSquares.add(to);
+    } else {
+      // Post-move check: any queen that captured (including promotion-captures)
+      const movedAfter = game.get(to);
+      if (movedAfter && movedAfter.type === 'q' && result.captured) {
+        game.remove(to);
+        game.put({ type:'n', color: movedAfter.color }, to);
+        cursedSquares.add(to);
+      }
     }
     // ----------------------------
 

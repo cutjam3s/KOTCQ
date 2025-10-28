@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knight of the Cursed Queen (Image Pieces) - Fixed</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
+<style>
+  /* --- Global Styles --- */
+  body {
+    margin: 0;
+    background-color: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: sans-serif;
+    color: #fff;
+  }
+
+  /* --- Board & Square Styles --- */
+  #chessboard {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    border: 2px solid #333;
+  }
+
+  .square {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    /* background-color: transparent !important;  Removed to restore light/dark squares */
+  }
+
+  .dark { background-color: #3a3a3a; }
+  .light { background-color: #2a2a2a; }
+
+  /* --- Piece Visuals (Base64 Images) --- */
+  .piece {
+    width: 100%;
+    height: 100%;
+    background-size: 90%;
+    background-repeat: no-repeat;
+    background-position: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2; /* Ensures piece is above highlights */
+    pointer-events: none; /* allow the square to receive clicks */
+  }
+
+  /* --- White Pieces (w) --- */
+  .piece-w-k { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgNC41Yy0xLjgtMy01LTMuMi03LTEuMi0yIDItMS41IDUgMCA3IDEuOCAyLjUgMi4yIDUgMCA3bTMwLjUtMTAuOGwtMTkuNi0xOC40bTM4LjYtOS45Yy0uMy4zLS41LjUtLjggLjgtMi42IDIuNC01LjYgMy44LTYuMiA1LjQtLjkgMi40LTIuNSA1LjYtMi41IDUuNi41IDEgMSA2IC41IDYuMi41LjIgMCAwIC41IDEuNi41IDEuNSAwIDMuNC0xLjIgNS4yLTMuNiA0LjgtMi42IDYuNS05LjkgMi41LTEyLjctMmMtMS41LTIuMi00LTIuNy02LjMtMS42LTQuNSAyLjEtNS44IDguMy0zLjEgMTEuOC43LjkuNCAxLjctLjQuNi0xLjEtMy41LTMtOC4zLTUtMTAuNC0zLjMtMi0xMC0yLjItMTMuNC0uNC00IDItNS44IDYuOC00IDExLjMtLjguNS0xLjIgMS41LS43IDIuNSAxLjcgNCA1LjIgNS44IDguNiAzLjcgMy41LTIuMiA2LjgtNy40IDguNi0xMi4yLjgtMi4xLjQtNC0uNy00LjktMS4yLS44LTItMS42LTEuNS0yLjQuOC0xLjQgMi4yLTIgMy44LTIuMiAxLjYtLjIgNC40IDEgNy40IDMgMy42IDIuMyA1LjYgNS43IDYuMiA5LjIuNCAyLjItLjIgNC41LTEuMiA2LjYtMS4zIDIuNy0zLjIgNS4yLTUuNCA3LjUtMS43IDEuOS0yLjQgMi41LTEuNyAzLjItMS43IDMtNC4zIDUuMi03LjQgNi44LTEgLjUtMS45LjQtMi42LS42IDAgMC0uMSAwLS4xLjEtLjMuMy0uNC41LS42LjctLjggMS4xLTEuNiAyLjMtMi42IDMuOS01LjMgMy43LTkuNiAxLjQtMTMtMi42LTMuNy03LjgtNC41LTkuNC0uNi0uMy41LjQgMS4yLS42LjctLjYuNS0xLjktLjItMi40LTEuNy0xLjUtNC43LS45LTYuNy44LTEuNyAxLjQtMi4yIDMuMy0xLjEgNC44IDEuMiAxLjcgMy42IDEuOCA1LjQtLjMgMS4zLTEuNSAxLjYtMy0uNi00LjMgMmMtMS44LS45LTQuNC0uOS02LjIgMC0xLjMgLjctMi4yIDEuOC0yLjUgMy40LS41IDIuMi4zIDQuNiAxLjMgNi44LjcgMS42IDEuNiAzLjIgMi40IDQuOCAzLjkgNi4yIDkuNiA4LjUgMTUuMiA1LjcgMS42LS43IDIuNy0yIDMtMy40LjMtLjggMC0xLjUtLjMtMi4zLTEuMi0zLjItNC4zLTUuNC03LjgtNi45LTQuOC0yLjItOS45LTEuOC0xNC40IDEtMy4yIDEuOC00LjYgNS42LTMuMiA5LjQuNSAxLjUgMS4zIDIuNiAyLjUgMy4zLjkgLjYgMi4xLjggMy41LjcuNSAwIDEgMC43IDEuNCAxLjQgMi4zIDMuNyAzLjYgNy40IDMuOSA4LjktLjEgLjYtLjIgMS4zLS41IDEuOS0uNyAxLjQtMS41IDIuNy0yLjUgNC4xLTIgMi41LTQuNCA0LjMtNy40IDUuOC0uOS41LTEuNy44LTIuNyAxLjMtNC4yIDItOC4zIDMtMTIuNiAzLTVsMjUgMi45bTMuOS03LjFjLS40LS43LS45LTEuMy0xLjYtMS42LTEuNC0uNy0zLjctLjUtNS42LjUtMi4yIDEuMS0zLjggMy41LTMuMyA1LjcuNSAyLjQgMi41IDMuNSA1IDQuNSAxLjMgLjUgMy4xLjUgNC42LjQtMS41LS40LTItMS0uNy0xLjguNi0uOCAxLjMtMS41IDIuMi0yLjUtLjYtLjEtMS4xLS40LTEuNy0uOC0xLjYtMS0yLjQtMi40LTIuNC00IDAtMS42IDEuMi0zLjIgMi44LTMuOCAxLjgtLjYgNC4zLS4zIDYuMyAxLjQtMS4xLTEtMi0yLTIuOC0zLjEtLjMtLjQtLjctLjktMS0xLjV6IiBmaWxsPSIjRkZGIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-w-q { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgNi45Yy0yLjgtNC42LTctNi40LTEwLjQtNi40LTQuNCAwLTcuNiAxLjgtOS42IDQuNi0yLjMgMy4yLTEuNSA3IDAgOS43IDEuNyAzIDQuMiA1IDYuNyA1LjggMi41LjcgNS4yLjYgNy43LS4zIDMuMS0xLjEgNS00IDUuNi02LjIuMi0uNi40LTEuMi40LTEuOHoiIGZpbGw9IiNGRkYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMjIuNSA2LjljMS44LTMtMS4yLTUtNC41LTVtLTE4IDBoNG0zLjctMTdsOSAxOG0xNi4zLTE4bC05IDE4bTMuMy04bDIgMyIgb25jbGljaz0iZGF0YS1wYXRoIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-w-r { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMTAuNmMtMi44LS4xLTUuNi0uMS04LjUtLjEtMS44IDAtMy4yLjgtMy40IDIuMy0uMiAxLjIgMCAyLjggLjQgNC4yLjYgMi4yIDEuOCAzLjggNC40IDMuOCAxLjUgMCAyLjMtLjggMi44LTEuNy44LTEuMyAyLjEtMS41IDMuNS0uNiAxLjUuOCAzLjMgMS4yIDUuMSAxLjIgMS44IDAgMy42LS40IDUuMS0xLjItMS4zLS41LTIuNi0xLjEtMy41LTIuMi0uNC0uNS0uOC0xLjItLjgtMi4xIDAtLjctLjQtMS41LS43LTIuMy0uMy0uOC0uNi0xLjYtLjYtMi41LS4xLTEuNS0xLjgtMi40LTMuNC0yLjR6IiBmaWxsPSIjRkZGIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-w-b { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggb25jbGljaz0iZGF0YS1wYXRoIiBkPSJNMjIuNSA1LjZjLTEuOC0zLjMtNC45LTQtOC40LTQtNC40IDAtNy42IDItOS42IDQuNi0yLjMgMy4yLTEuNSA3IDAgOS43IDEuNyAzIDQuMiA1IDYuNyA1LjggMi41LjcgNS4yLjYgNy43LS4zIDMuMS0xLjEgNS00IDUuNi02LjIuMi0uNi40LTEuMi40LTEuOHoiIGZpbGw9IiNGRkYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMjIuNSA1LjZjMS44LTMtMS4yLTUtNC41LTVtLTE4IDBoNG0zLjctMTdsOSAxOG0xNi4zLTE4bC05IDE4bTMuMy04bDIgMyIgb25jbGljaz0iZGF0YS1wYXRoIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-w-n { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMTQuMWMtLjctLjMtMS41LS41LTIuNC0uNS0xLjgtLjEtMy41IDAtNS4xLjUtMy4zIDEtNC41IDQuMS0yLjQgNi44LjQgLjUuNyAxLjMuNyAxLjggMCAuOC0uMiAxLjctLjcgMi41LTEuMiAyLjEtMy4zIDMuNS01LjcgNC4yLTMuNiAxLTIuNi0xLjgtMS40LTUtLjgtMi4xLS40LTQuNC0uNS02LjUtLjItMi0uNS0zLjUtLjYtNS40LS41LTIuNC40LTQuNiAxLjctNi4yIDMuNi0yLjQgNC40LTYgNi43LTguNC0zLjUtMy42LTIuNy02LjMtLjktOC4yIDEuMS0xLjIgMy41LTEuNyA1LjQtLjkgMi4xLjkgMy43IDIuNiAzLjcgNC44eiIgZmlsbD0iI0ZGRiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg=="); }
+  .piece-w-p { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMjQuNGMwLTMtMS45LTUtNC42LTUtMi40IDAtNC4zIDItNC42IDUtLjUgMy4zLjMgNi4zIDEuMyA3LjIuNi43IDEuNy41IDIuNy0uMy45LS44IDEuOC0yLjUgMS44LTMuNnptLTE2LjggMGgtMy43bDIgNi40aC0zLjVsLTIgNS42aC0uNW00My41LTYuNGgtMy43bDIgNi40aC0zLjVsLTIgNS42aC0uNSIgZmlsbD0iI0ZGRiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg=="); }
+
+  /* --- Black Pieces (b) --- */
+  .piece-b-k { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgNC41Yy0xLjgtMy01LTMuMi03LTEuMi0yIDItMS41IDUgMCA3IDEuOCAyLjUgMi4yIDUgMCA3bTMwLjUtMTAuOGwtMTkuNi0xOC40bTM4LjYtOS45Yy0uMy4zLS41LjUtLjggLjgtMi42IDIuNC01LjYgMy44LTYuMiA1LjQtLjkgMi40LTIuNSA1LjYtMi41IDUuNi41IDEgMSA2IC41IDYuMi41LjIgMCAwIC41IDEuNi41IDEuNSAwIDMuNC0xLjIgNS4yLTMuNiA0LjgtMi42IDYuNS05LjkgMi41LTEyLjctMmMtMS41LTIuMi00LTIuNy02LjMtMS42LTQuNSAyLjEtNS44IDguMy0zLjEgMTEuOC43LjkuNCAxLjctLjQuNi0xLjEtMy41LTMtOC4zLTUtMTAuNC0zLjMtMi0xMC0yLjItMTMuNC0uNC00IDItNS44IDYuOC00IDExLjMtLjguNS0xLjIgMS41LS43IDIuNSAxLjcgNCA1LjIgNS44IDguNiAzLjcgMy41LTIuMiA2LjgtNy40IDguNi0xMi4yLjgtMi4xLjQtNC0uNy00LjktMS4yLS44LTItMS42LTEuNS0yLjQuOC0xLjQgMi4yLTIgMy44LTIuMiAxLjYtLjIgNC40IDEgNy40IDMgMy42IDIuMyA1LjYgNS43IDYuMiA5LjIuNCAyLjItLjIgNC41LTEuMiA2LjYtMS4zIDIuNy0zLjIgNS4yLTUuNCA3LjUtMS43IDEuOS0yLjQgMi41LTEuNyAzLjItMS43IDMtNC4zIDUuMi03LjQgNi44LTEgLjUtMS45LjQtMi42LS42IDAgMC0uMSAwLS4xLjEtLjMuMy0uNC41LS42LjctLjggMS4xLTEuNiAyLjMtMi42IDMuOS01LjMgMy43LTkuNiAxLjQtMTMtMi42LTMuNy03LjgtNC41LTkuNC0uNi0uMy41LjQgMS4yLS42LjctLjYuNS0xLjktLjItMi40LTEuNy0xLjUtNC43LS45LTYuNy44LTEuNyAxLjQtMi4yIDMuMy0xLjEgNC44IDEuMiAxLjcgMy42IDEuOCA1LjQtLjMgMS4zLTEuNSAxLjYtMy0uNi00LjMgMmMtMS44LS45LTQuNC0uOS02LjIgMC0xLjMgLjctMi4yIDEuOC0yLjUgMy40LS41IDIuMi4zIDQuNiAxLjMgNi44LjcgMS42IDEuNiAzLjIgMi40IDQuOCAzLjkgNi4yIDkuNiA4LjUgMTUuMiA1LjcgMS42LS43IDIuNy0yIDMtMy40LjMtLjggMC0xLjUtLjMtMi4zLTEuMi0zLjItNC4zLTUuNC03LjgtNi45LTQuOC0yLjItOS45LTEuOC0xNC40IDEtMy4yIDEuOC00LjYgNS42LTMuMiA5LjQuNSAxLjUgMS4zIDIuNiAyLjUgMy4zLjkgLjYgMi4xLjggMy41LjcuNSAwIDEgMC43IDEuNCAxLjQgMi4zIDMuNyAzLjYgNy40IDMuOSA4LjktLjEgLjYtLjIgMS4zLS41IDEuOS0uNyAxLjQtMS41IDIuNy0yLjUgNC4xLTIgMi41LTQuNCA0LjMtNy40IDUuOC0uOS41LTEuNy44LTIuNyAxLjMtNC4yIDItOC4zIDMtMTIuNiAzLTVsMjUgMi45bTMuOS03LjFjLS40LS43LS45LTEuMy0xLjYtMS42LTEuNC0uNy0zLjctLjUtNS42LjUtMi4yIDEuMS0zLjggMy41LTMuMyA1LjcuNSAyLjQgMi41IDMuNSA1IDQuNSAxLjMgLjUgMy4xLjUgNC42LjQtMS41LS40LTItMS0uNy0xLjguNi0uOCAxLjMtMS41IDIuMi0yLjUtLjYtLjEtMS4xLS40LTEuNy0uOC0xLjYtMS0yLjQtMi40LTIuNC00IDAtMS42IDEuMi0zLjIgMi44LTMuOCAxLjgtLjYgNC4zLS4zIDYuMyAxLjQtMS4xLTEtMi0yLTIuOC0zLjEtLjMtLjQtLjctLjktMS0xLjV6IiBmaWxsPSIjMDAwIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-b-q { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgNi45Yy0yLjgtNC42LTctNi40LTEwLjQtNi40LTQuNCAwLTcuNiAxLjgtOS42IDQuNi0yLjMgMy4yLTEuNSA3IDAgOS43IDEuNyAzIDQuMiA1IDYuNyA1LjggMi41LjcgNS4yLjYgNy43LS4zIDMuMS0xLjEgNS00IDUuNi02LjIuMi0uNi40LTEuMi40LTEuOHoiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI0ZGRiIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMjIuNSA2LjljMS44LTMtMS4yLTUtNC41LTVtLTE4IDBoNG0zLjctMTdsOSAxOG0xNi4zLTE4bC05IDE4bTMuMy04bDIgMyIgb25jbGljaz0iZGF0YS1wYXRoIiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-b-r { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMTAuNmMtMi44LS4xLTUuNi0uMS04LjUtLjEtMS44IDAtMy4yLjgtMy40IDIuMy0uMiAxLjIgMCAyLjggLjQgNC4yLjYgMi4yIDEuOCAzLjggNC40IDMuOCAxLjUgMCAyLjMtLjggMi44LTEuNy44LTEuMyAyLjEtMS41IDMuNS0uNiAxLjUuOCAzLjMgMS4yIDUuMSAxLjIgMS44IDAgMy42LS40IDUuMS0xLjItMS4zLS41LTIuNi0xLjEtMy41LTIuMi0uNC0uNS0uOC0xLjItLjgtMi4xIDAtLjctLjQtMS41LS43LTIuMy0uMy0uOC0uNi0xLjYtLjYtMi41LS4xLTEuNS0xLjgtMi40LTMuNC0yLjR6IiBmaWxsPSIjMDAwIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-b-b { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggb25jbGljaz0iZGF0YS1wYXRoIiBkPSJNMjIuNSA1LjZjLTEuOC0zLjMtNC45LTQtOC40LTQtNC40IDAtNy42IDItOS42IDQuNi0yLjMgMy4yLTEuNSA3IDAgOS43IDEuNyAzIDQuMiA1IDYuNyA1LjggMi41LjcgNS4yLjYgNy43LS4zIDMuMS0xLjEgNS00IDUuNi02LjIuMi0uNi40LTEuMi40LTEuOHoiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI0ZGRiIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMjIuNSA1LjZjMS44LTMtMS4yLTUtNC41LTVtLTE4IDBoNG0zLjctMTdsOSAxOG0xNi4zLTE4bC05IDE4bTMuMy04bDIgMyIgb25jbGljaz0iZGF0YS1wYXRoIiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-b-n { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMTQuMWMtLjctLjMtMS41LS41LTIuNC0uNS0xLjgtLjEtMy41IDAtNS4xLjUtMy4zIDEtNC41IDQuMS0yLjQgNi44LjQgLjUuNyAxLjMuNyAxLjggMCAuOC0uMiAxLjctLjcgMi41LTEuMiAyLjEtMy4zIDMuNS01LjcgNC4yLTMuNiAxLTIuNi0xLjgtMS40LTUtLjgtMi4xLS40LTQuNC0uNS02LjUtLjItMi0uNS0zLjUtLjYtNS40LS41LTIuNC40LTQuNiAxLjctNi4yIDMuNi0yLjQgNC40LTYgNi43LTguNC0zLjUtMy42LTIuNy02LjMtLjktOC4yIDEuMS0xLjIgMy41LTEuNyA1LjQtLjkgMi4xLjkgMy43IDIuNiAzLjcgNC44eiIgZmlsbD0iIzAwMCIgc3Ryb2tlPSIjRkZGIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg=="); }
+  .piece-b-p { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggb25jbGljaz0iZGF0YS1wYXRoIiBkPSJNMjIuNSAyNC40YzAtMy0xLjktNS00LjYtNS0yLjQgMC00LjMgMi00LjYgNS0uNSAzLjMuMyA2LjMgMS4zIDcuMi42LjcgMS43LjUgMi43LS4zLjktLjggMS44LTIuNSAxLjgtMy42em0tMTYuOCAwaC0zLjdsMiA2LjRoLTMuNWwtMiA1LjZoLS41bTQzLjUtNi40aC0zLjdsMiA2LjRoLTMuNWwtMiA1LjZoLS41IiBmaWxsPSIjMDAwIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+
+  /* --- Cursed Queen Style --- */
+  .cursed-piece {
+    /* filter: drop-shadow(0 0 5px #9b59b6); */
+  }
+
+  .cursed-glow {
+    box-shadow: 0 0 12px 4px #9b59b6;
+    animation: glowPulse 1.5s infinite alternate;
+  }
+
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 3px 1px #9b59b6; }
+    100% { box-shadow: 0 0 18px 5px #9b59b6; }
+  }
+
+
+  /* --- Highlight Styles --- */
+  .highlight {
+    box-shadow: inset 0 0 0 3px rgba(76, 175, 80, 0.4);
+  }
+  .highlight::after {
+    content: '';
+    display: block;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background-color: rgba(76, 175, 80, 0.7);
+    position: absolute;
+    z-index: 1; /* Below the piece image */
+  }
+  .highlight.capture {
+    box-shadow: inset 0 0 0 3px rgba(244, 67, 54, 0.7);
+  }
+  .highlight.capture::after { content: none; }
+
+
+  /* --- Status Display --- */
+  #game-status {
+      margin-top: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      min-height: 30px;
+  }
+</style>
+</head>
+<body>
+
+<div id="chessboard"></div>
+<div id="game-status"></div>
+
+<script>
+const files = ['a','b','c','d','e','f','g','h'];
+const corners = ['a1','h1','a8','h8'];
+const boardDiv = document.getElementById('chessboard');
+const statusDiv = document.getElementById('game-status');
+let selectedSquare = null;
+let pieceElements = {}; // Map to hold the created piece DIVs
+
+const game = new Chess();
+
+// Track which squares currently hold a cursed piece (knight with glow)
+const cursedSquares = new Set(['d1', 'd8']);
+
+// --- INITIAL CURSED KNIGHT SETUP FOR BOTH SIDES ---
+// Remove default queens and place knights; curse tracked externally
+game.remove('d1');
+game.remove('d8');
+game.put({ type: 'n', color: 'w' }, 'd1');
+game.put({ type: 'n', color: 'b' }, 'd8');
+
+// Build board squares and create placeholder divs for pieces
+const squares = {};
+for(let r=8;r>=1;r--){
+  for(let f=0;f<8;f++){
+    const sq = files[f]+r;
+    const div = document.createElement('div');
+    div.classList.add('square');
+    div.classList.add((f+r)%2===0 ? 'light' : 'dark');
+    div.id = sq;
+    boardDiv.appendChild(div);
+    squares[sq] = div;
+
+    // Attach click listener
+    div.addEventListener('click', ()=>{
+      if(selectedSquare){
+        move(selectedSquare, sq);
+      } else {
+        selectSquare(sq);
+      }
+    });
+  }
+}
+
+// Clears all highlights and selection outlines
+function clearHighlights() {
+    selectedSquare = null;
+    for (const sq in squares) {
+        squares[sq].style.outline = '';
+        squares[sq].classList.remove('highlight');
+        squares[sq].classList.remove('capture');
+    }
+}
+
+// Highlights all legal moves for a piece
+function highlightMoves(sq) {
+    const moves = game.moves({ square: sq, verbose: true });
+    moves.forEach(move => {
+        const targetSquareDiv = squares[move.to];
+        if (!targetSquareDiv) return;
+        targetSquareDiv.classList.add('highlight');
+        if (move.captured) {
+            targetSquareDiv.classList.add('capture');
+        }
+    });
+}
+
+
+function renderBoard(){
+  // 1. Clear all existing piece elements
+  for (const sq in squares) {
+    const squareDiv = squares[sq];
+    const pieceEl = pieceElements[sq];
+    if (pieceEl) {
+        squareDiv.removeChild(pieceEl);
+        delete pieceElements[sq];
+    }
+  }
+
+  // 2. Place new piece elements based on game state
+  for(const sq in squares){
+    const piece = game.get(sq);
+    const squareDiv = squares[sq];
+
+    // Clear selection outline
+    squareDiv.style.removeProperty('outline');
+
+    if(piece){
+        const pieceEl = document.createElement('div');
+        pieceEl.classList.add('piece');
+        pieceEl.classList.add(`piece-${piece.color}-${piece.type}`);
+
+        if(cursedSquares.has(sq)) {
+            pieceEl.classList.add('cursed-piece');
+            pieceEl.classList.add('cursed-glow');
+        }
+
+        squareDiv.appendChild(pieceEl);
+        pieceElements[sq] = pieceEl;
+    }
+  }
+  updateStatus();
+}
+
+function selectSquare(sq){
+  const piece = game.get(sq);
+  if(!piece) return;
+
+  clearHighlights();
+
+  if(game.turn()===piece.color){
+    selectedSquare = sq;
+    squares[sq].style.outline = '2px solid yellow';
+    highlightMoves(sq);
+  }
+}
+
+function move(from, to){
+  const piece = game.get(from);
+  if(!piece) return;
+
+  let moveObj = { from, to };
+
+  // Pawn promotion logic (always to queen)
+  if(piece.type==='p' && (to[1]==='8' || to[1]==='1')){
+    moveObj.promotion = 'q';
+  }
+
+  const result = game.move(moveObj);
+  if(result){
+    const color = piece.color;
+    const movingIsCursed = cursedSquares.has(from);
+
+    // If capture occurred, ensure the captured square isn't left marked cursed
+    if (result.captured) {
+      cursedSquares.delete(to);
+    }
+
+    // --- CURSED QUEEN MECHANICS ---
+    if(movingIsCursed){
+      // Move the curse along with the piece
+      cursedSquares.delete(from);
+      if(corners.includes(to)){
+        // Cursed Knight lands on corner -> transform into normal Queen (curse removed)
+        game.remove(to);
+        game.put({ type:'q', color:color }, to);
+        // do not add to cursedSquares
+      } else {
+        cursedSquares.add(to);
+      }
+    } else if(piece.type==='q' && result.captured){
+      // Normal Queen captures a piece -> transform back to Cursed Knight and becomes cursed
+      game.remove(to);
+      game.put({ type:'n', color:color }, to);
+      cursedSquares.add(to);
+    }
+    // ----------------------------
+
+    clearHighlights(); 
+    renderBoard();
+  } else {
+    clearHighlights();
+  }
+}
+
+function updateStatus() {
+  let status = '';
+  let moveColor = game.turn() === 'w' ? 'White' : 'Black';
+
+  if (game.in_checkmate()) {
+    status = `GAME OVER. ${moveColor} is in checkmate.`;
+    statusDiv.style.color = 'red';
+  } else if (game.in_draw()) {
+    status = 'GAME OVER. Draw.';
+    statusDiv.style.color = 'yellow';
+  } else {
+    status = `${moveColor} to move.`;
+    statusDiv.style.color = 'white'; 
+    
+    if (game.in_check()) {
+      status += ` (${moveColor} is in Check!)`;
+      statusDiv.style.color = 'orange';
+    }
+  }
+
+  statusDiv.textContent = status;
+}
+
+
+// Initial render when script loads
+renderBoard();
+</script>
+</body>
+</html>

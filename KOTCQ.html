@@ -1,176 +1,342 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>KOTCQ</title>
-  <style>
-    :root{ --bg:#0f1724; --card:#0b1220; --accent:#7dd3fc; --muted:#94a3b8; --text:#e6eef6; }
-    html,body{ height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,var(--bg),#071027); color:var(--text); }
-    .wrap{ max-width:900px; margin:4vh auto; padding:24px; background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent); border-radius:12px; box-shadow:0 6px 30px rgba(2,6,23,0.6); }
-    header{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-    h1{ margin:0; font-size:1.4rem; letter-spacing:0.6px; }
-    p.lead{ margin:8px 0 18px; color:var(--muted); }
-    .card{ background:var(--card); padding:16px; border-radius:10px; margin-bottom:12px; }
-    label{ display:block; font-size:0.9rem; margin-bottom:6px; color:var(--muted); }
-    input[type="text"], textarea{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:transparent; color:var(--text); box-sizing:border-box; }
-    button{ background:linear-gradient(90deg,var(--accent),#60a5fa); color:#042029; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
-    footer{ margin-top:18px; color:var(--muted); font-size:0.85rem; }
-    .error{ color:#ffb4b4; font-size:0.9rem; margin-top:8px; }
-    .hidden{ display:none; }
-    pre{ white-space:pre-wrap; word-break:break-word; background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; color:var(--muted); }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Knight of the Cursed Queen</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
+<style>
+  /* --- Global Styles --- */
+  :root {
+    --bg: #0f0f12;
+    --board-border: #333;
+    --square-light: #2a2a2a;
+    --square-dark: #3a3a3a;
+    --text: #fff;
+    --glow: #9b59b6;
+    --highlight: rgba(76, 175, 80, 0.7);
+    --highlight-ring: rgba(76, 175, 80, 0.4);
+    --capture: rgba(244, 67, 54, 0.7);
+  }
+  body {
+    margin: 0;
+    background: radial-gradient(1000px 600px at 50% 0%, #1a1a1a 0%, var(--bg) 60%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+    color: var(--text);
+  }
+
+  /* --- Board & Square Styles --- */
+  #chessboard {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    border: 2px solid var(--board-border);
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+  .square {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+  }
+  .dark { background-color: var(--square-dark); }
+  .light { background-color: var(--square-light); }
+
+  /* --- Piece Visuals (Base64 Images) --- */
+  .piece {
+    width: 100%;
+    height: 100%;
+    background-size: 90%;
+    background-repeat: no-repeat;
+    background-position: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+  }
+
+  /* Crown badge to distinguish the cursed knight */
+  .piece.crowned::after {
+    content: "👑";
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 16px;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.7));
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* Cursed glow around the piece (not the square) */
+  .piece.cursed-glow {
+    box-shadow: 0 0 12px 4px var(--glow);
+    animation: glowPulse 1.5s infinite alternate;
+    border-radius: 6px;
+  }
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 3px 1px var(--glow); }
+    100% { box-shadow: 0 0 18px 5px var(--glow); }
+  }
+
+  /* --- Highlight Styles --- */
+  .highlight {
+    box-shadow: inset 0 0 0 3px var(--highlight-ring);
+  }
+  .highlight::after {
+    content: '';
+    display: block;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background-color: var(--highlight);
+    position: absolute;
+    z-index: 1;
+  }
+  .highlight.capture {
+    box-shadow: inset 0 0 0 3px var(--capture);
+  }
+  .highlight.capture::after { content: none; }
+
+  /* --- Status Display --- */
+  #game-status {
+    margin-top: 18px;
+    font-size: 20px;
+    font-weight: 700;
+    min-height: 28px;
+  }
+
+  /* --- White Pieces (w) --- */
+  .piece-w-k { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgNC41Yy0xLjgtMy01LTMuMi03LTEuMi0yIDItMS41IDUgMCA3IDEuOCAyLjUgMi4yIDUgMCA3bTMwLjUtMTAuOGwtMTkuNi0xOC40bTM4LjYtOS45Yy0uMy4zLS41LjUtLjguLjgtMi42IDIuNC01LjYgMy44LTYuMiA1LjQtLjkgMi40LTIuNSA1LjYtMi41IDUuNi41IDEgMSA2IC41IDYuMi41LjIgMCAwIC41IDEuNi41IDEuNSAwIDMuNC0xLjIgNS4yLTMuNiA0LjgtMi42IDYuNS05LjkgMi41LTEyLjctMmMtMS41LTIuMi00LTIuNy02LjMtMS42LTQuNSAyLjEtNS44IDguMy0zLjEgMTEuOC43LjkuNCAxLjctLjQuNi0xLjEtMy41LTMtOC4zLTUtMTAuNC0zLjMtMi0xMC0yLjItMTMuNC0uNC00IDItNS44IDYuOC00IDExLjMtLjguNS0xLjIgMS41LS43IDIuNSAxLjcgNCA1LjIgNS44IDguNiAzLjcgMy41LTIuMiA2LjgtNy40IDguNi0xMi4yLjgtMi4xLjQtNC0uNy00LjktMS4yLS44LTItMS42LTEuNS0yLjQuOC0xLjQgMi4yLTIgMy44LTIuMiAxLjYtLjIgNC40IDEgNy40IDMgMy42IDIuMyA1LjYgNS43IDYuMiA5LjIuNCAyLjItLjIgNC41LTEuMiA2LjYtMS4zIDIuNy0zLjIgNS4yLTUuNCA3LjUtMS43IDEuOS0yLjQgMi41LTEuNyAzLjItMS43IDMtNC4zIDUuMi03LjQgNi44LTEgLjUtMS45LjQtMi42LS42IDAgMC0uMSAwLS4xLjEtLjMuMy0uNC41LS42LjctLjggMS4xLTEuNiAyLjMtMi42IDMuOS01LjMgMy43LTkuNiAxLjQtMTMtMi42LTMuNy03LjgtNC41LTkuNC0uNi0uMy41LjQgMS4yLS42LjctLjYuNS0xLjktLjItMi40LTEuNy0xLjUtNC43LS45LTYuNy44LTEuNyAxLjQtMi4yIDMuMy0xLjEgNC44IDEuMiAxLjcgMy42IDEuOCA1LjQtLjMgMS4zLTEuNSAxLjYtMy0uNi00LjMgMmMtMS44LS45LTQuNC0uOS02LjIgMC0xLjMgLjctMi4yIDEuOC0yLjUgMy40LS41IDIuMi4zIDQuNiAxLjMgNi44LjcgMS42IDEuNiAzLjIgMi40IDQuOCAzLjkgNi4yIDkuNiA4LjUgMTUuMiA1LjcgMS42LS43IDIuNy0yIDMtMy40LjMtLjggMC0xLjUtLjMtMi4zLTEuMi0zLjItNC4zLTUuNC03LjgtNi45LTQuOC0yLjItOS45LTEuOC0xNC40IDEtMy4yIDEuOC00LjYgNS42LTMuMiA5LjQuNSAxLjUgMS4zIDIuNiAyLjUgMy4zLjkgLjYgMi4xLjggMy41LjcuNSAwIDEgMC43IDEuNCAxLjQgMi4zIDMuNyAzLjYgNy40IDMuOSA4LjktLjEgLjYtLjIgMS4zLS41IDEuOS0uNyAxLjQtMS41IDIuNy0yLjUgNC4xLTIgMi41LTQuNCA0LjMtNy40IDUuOC0uOS41LTEuNy44LTIuNyAxLjMtNC4yIDItOC4zIDMtMTIuNiAzLTVsMjUgMi45bTMuOS03LjFjLS40LS43LS45LTEuMy0xLjYtMS42LTEuNC0uNy0zLjctLjUtNS42LjUtMi4yIDEuMS0zLjggMy41LTMuMyA1LjcuNSAyLjQgMi41IDMuNSA1IDQuNSAxLjMgLjUgMy4xLjUgNC42LjQtMS41LS40LTItMS0uNy0xLjguNi0uOCAxLjMtMS41IDIuMi0yLjUtLjYtLjEtMS4xLS40LTEuNy0uOC0xLjYtMS0yLjQtMi40LTIuNC00IDAtMS42IDEuMi0zLjIgMi44LTMuOCAxLjgtLjYgNC4zLS4zIDYuMyAxLjQtMS4xLTEtMi0yLTIuOC0zLjEtLjMtLjQtLjctLjktMS0xLjV6IiBmaWxsPSIjRkZGIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-w-q { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgNi45Yy0yLjgtNC42LTctNi40LTEwLjQtNi40LTQuNCAwLTcuNiAxLjgtOS42IDQuNi0yLjMgMy4yLTEuNSA3IDAgOS43IDEuNyAzIDQuMiA1IDYuNyA1LjggMi41LjcgNS4yLjYgNy43LS4zIDMuMS0xLjEgNS00IDUuNi02LjIuMi0uNi40LTEuMi40LTEuOHoiIGZpbGw9IiNGRkYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMjIuNSA2LjljMS44LTMtMS4yLTUtNC41LTVtLTE4IDBoNG0zLjctMTdsOSAxOG0xNi4zLTE4bC05IDE4bTMuMy04bDIgMyIgb25jbGljaz0iZGF0YS1wYXRoIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-w-r { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMTAuNmMtMi44LS4xLTUuNi0uMS04LjUtLjEtMS44IDAtMy4yLjgtMy40IDIuMy0uMiAxLjIgMCAyLjggLjQgNC4yLjYgMi4yIDEuOCAzLjggNC40IDMuOCAxLjUgMCAyLjMtLjggMi44LTEuNy44LTEuMyAyLjEtMS41IDMuNS0uNiAxLjUuOCAzLjMgMS4yIDUuMSAxLjIgMS44IDAgMy42LS40IDUuMS0xLjItMS4zLS41LTIuNi0xLjEtMy41LTIuMi0uNC0uNS0uOC0xLjItLjgtMi4xIDAtLjctLjQtMS41LS43LTIuMy0uMy0uOC0uNi0xLjYtLjYtMi41LS4xLTEuNS0xLjgtMi40LTMuNC0yLjR6IiBmaWxsPSIjRkZGIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-w-b { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggb25jbGljaz0iZGF0YS1wYXRoIiBkPSJNMjIuNSA1LjZjLTEuOC0zLjMtNC45LTQtOC40LTQtNC40IDAtNy42IDItOS42IDQuNi0yLjMgMy4yLTEuNSA3IDAgOS43IDEuNyAzIDQuMiA1IDYuNyA1LjggMi41LjcgNS4yLjYgNy43LS4zIDMuMS0xLjEgNS00IDUuNi02LjIuMi0uNi40LTEuMi40LTEuOHoiIGZpbGw9IiNGRkYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMjIuNSA1LjZjMS44LTMtMS4yLTUtNC41LTVtLTE4IDBoNG0zLjctMTdsOSAxOG0xNi4zLTE4bC05IDE4bTMuMy04bDIgMyIgb25jbGljaz0iZGF0YS1wYXRoIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-w-n { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMTQuMWMtLjctLjMtMS41LS41LTIuNC0uNS0xLjgtLjEtMy41IDAtNS4xLjUtMy4zIDEtNC41IDQuMS0yLjQgNi44LjQgLjUuNyAxLjMuNyAxLjggMCAuOC0uMiAxLjctLjcgMi41LTEuMiAyLjEtMy4zIDMuNS01LjcgNC4yLTMuNiAxLTIuNi0xLjgtMS40LTUtLjgtMi4xLS40LTQuNC0uNS02LjUtLjItMi0uNS0zLjUtLjYtNS40LS41LTIuNC40LTQuNiAxLjctNi4yIDMuNi0yLjQgNC40LTYgNi43LTguNC0zLjUtMy42LTIuNy02LjMtLjktOC4yIDEuMS0xLjIgMy41LTEuNyA1LjQtLjkgMi4xLjkgMy43IDIuNiAzLjcgNC44eiIgZmlsbD0iI0ZGRiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg=="); }
+  .piece-w-p { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMjQuNGMwLTMtMS45LTUtNC42LTUtMi40IDAtNC4zIDItNC42IDUtLjUgMy4zLjMgNi4zIDEuMyA3LjIuNi43IDEuNy41IDIuNy0uMy45LS44IDEuOC0yLjUgMS44LTMuNnptLTE2LjggMGgtMy43bDIgNi40aC0zLjVsLTIgNS42aC0uNW00My41LTYuNGgtMy43bDIgNi40aC0zLjVsLTIgNS42aC0uNSIgZmlsbD0iI0ZGRiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg=="); }
+
+  /* --- Black Pieces (b) --- */
+  .piece-b-k { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgNC41Yy0xLjgtMy01LTMuMi03LTEuMi0yIDItMS41IDUgMCA3IDEuOCAyLjUgMi4yIDUgMCA3bTMwLjUtMTAuOGwtMTkuNi0xOC40bTM4LjYtOS45Yy0uMy4zLS41LjUtLjguLjgtMi42IDIuNC01LjYgMy44LTYuMiA1LjQtLjkgMi40LTIuNSA1LjYtMi41IDUuNi41IDEgMSA2IC41IDYuMi41LjIgMCAwIC41IDEuNi41IDEuNSAwIDMuNC0xLjIgNS4yLTMuNiA0LjgtMi42IDYuNS05LjkgMi41LTEyLjctMmMtMS41LTIuMi00LTIuNy02LjMtMS42LTQuNSAyLjEtNS44IDguMy0zLjEgMTEuOC43LjkuNCAxLjctLjQuNi0xLjEtMy41LTMtOC4zLTUtMTAuNC0zLjMtMi0xMC0yLjItMTMuNC0uNC00IDItNS44IDYuOC00IDExLjMtLjguNS0xLjIgMS41LS43IDIuNSAxLjcgNCA1LjIgNS44IDguNiAzLjcgMy41LTIuMiA2LjgtNy40IDguNi0xMi4yLjgtMi4xLjQtNC0uNy00LjktMS4yLS44LTItMS42LTEuNS0yLjQuOC0xLjQgMi4yLTIgMy44LTIuMiAxLjYtLjIgNC40IDEgNy40IDMgMy42IDIuMyA1LjYgNS43IDYuMiA5LjIuNCAyLjItLjIgNC41LTEuMiA2LjYtMS4zIDIuNy0zLjIgNS4yLTUuNCA3LjUtMS43IDEuOS0yLjQgMi41LTEuNyAzLjItMS43IDMtNC4zIDUuMi03LjQgNi44LTEgLjUtMS45LjQtMi42LS42IDAgMC0uMSAwLS4xLjEtLjMuMy0uNC41LS42LjctLjggMS4xLTEuNiAyLjMtMi42IDMuOS01LjMgMy43LTkuNiAxLjQtMTMtMi42LTMuNy03LjgtNC41LTkuNC0uNi0uMy41LjQgMS4yLS42LjctLjYuNS0xLjktLjItMi40LTEuNy0xLjUtNC43LS45LTYuNy44LTEuNyAxLjQtMi4yIDMuMy0xLjEgNC44IDEuMiAxLjcgMy42IDEuOCA1LjQtLjMgMS4zLTEuNSAxLjYtMy0uNi00LjMgMmMtMS44LS45LTQuNC0uOS02LjIgMC0xLjMgLjctMi4yIDEuOC0yLjUgMy40LS41IDIuMi4zIDQuNiAxLjMgNi44LjcgMS42IDEuNiAzLjIgMi40IDQuOCAzLjkgNi4yIDkuNiA4LjUgMTUuMiA1LjcgMS42LS43IDIuNy0yIDMtMy40LjMtLjggMC0xLjUtLjMtMi4zLTEuMi0zLjItNC4zLTUuNC03LjgtNi45LTQuOC0yLjItOS45LTEuOC0xNC40IDEtMy4yIDEuOC00LjYgNS42LTMuMiA5LjQuNSAxLjUgMS4zIDIuNiAyLjUgMy4zLjkgLjYgMi4xLjggMy41LjcuNSAwIDEgMC43IDEuNCAxLjQgMi4zIDMuNyAzLjYgNy40IDMuOSA4LjktLjEgLjYtLjIgMS4zLS41IDEuOS0uNyAxLjQtMS41IDIuNy0yLjUgNC4xLTIgMi41LTQuNCA0LjMtNy40IDUuOC0uOS41LTEuNy44LTIuNyAxLjMtNC4yIDItOC4zIDMtMTIuNiAzLTVsMjUgMi45bTMuOS03LjFjLS40LS43LS45LTEuMy0xLjYtMS42LTEuNC0uNy0zLjctLjUtNS42LjUtMi4yIDEuMS0zLjggMy41LTMuMyA1LjcuNSAyLjQgMi41IDMuNSA1IDQuNSAxLjMgLjUgMy4xLjUgNC42LjQtMS41LS40LTItMS0uNy0xLjguNi0uOCAxLjMtMS41IDIuMi0yLjUtLjYtLjEtMS4xLS40LTEuNy0uOC0xLjYtMS0yLjQtMi40LTIuNC00IDAtMS42IDEuMi0zLjIgMi44LTMuOCAxLjgtLjYgNC4zLS4zIDYuMyAxLjQtMS4xLTEtMi0yLTIuOC0zLjEtLjMtLjQtLjctLjktMS0xLjV6IiBmaWxsPSIjMDAwIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-b-q { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgNi45Yy0yLjgtNC42LTctNi40LTEwLjQtNi40LTQuNCAwLTcuNiAxLjgtOS42IDQuNi0yLjMgMy4yLTEuNSA3IDAgOS43IDEuNyAzIDQuMiA1IDYuNyA1LjggMi41LjcgNS4yLjYgNy43LS4zIDMuMS0xLjEgNS00IDUuNi02LjIuMi0uNi40LTEuMi40LTEuOHoiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI0ZGRiIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMjIuNSA2LjljMS44LTMtMS4yLTUtNC41LTVtLTE4IDBoNG0zLjctMTdsOSAxOG0xNi4zLTE4bC05IDE4bTMuMy04bDIgMyIgb25jbGljaz0iZGF0YS1wYXRoIiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-b-r { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMTAuNmMtMi44LS4xLTUuNi0uMS04LjUtLjEtMS44IDAtMy4yLjgtMy40IDIuMy0uMiAxLjIgMCAyLjggLjQgNC4yLjYgMi4yIDEuOCAzLjggNC40IDMuOCAxLjUgMCAyLjMtLjggMi44LTEuNy44LTEuMyAyLjEtMS41IDMuNS0uNiAxLjUuOCAzLjMgMS4yIDUuMSAxLjIgMS44IDAgMy42LS40IDUuMS0xLjItMS4zLS41LTIuNi0xLjEtMy41LTIuMi0uNC0uNS0uOC0xLjItLjgtMi4xIDAtLjctLjQtMS41LS43LTIuMy0uMy0uOC0uNi0xLjYtLjYtMi41LS4xLTEuNS0xLjgtMi40LTMuNC0yLjR6IiBmaWxsPSIjMDAwIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-b-b { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggb25jbGljaz0iZGF0YS1wYXRoIiBkPSJNMjIuNSA1LjZjLTEuOC0zLjMtNC45LTQtOC40LTQtNC40IDAtNy42IDItOS42IDQuNi0yLjMgMy4yLTEuNSA3IDAgOS43IDEuNyAzIDQuMiA1IDYuNyA1LjggMi41LjcgNS4yLjYgNy43LS4zIDMuMS0xLjEgNS00IDUuNi02LjIuMi0uNi40LTEuMi40LTEuOHoiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI0ZGRiIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMjIuNSA1LjZjMS44LTMtMS4yLTUtNC41LTVtLTE4IDBoNG0zLjctMTdsOSAxOG0xNi4zLTE4bC05IDE4bTMuMy04bDIgMyIgb25jbGljaz0iZGF0YS1wYXRoIiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+  .piece-b-n { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggZD0iTTIyLjUgMTQuMWMtLjctLjMtMS41LS41LTIuNC0uNS0xLjgtLjEtMy41IDAtNS4xLjUtMy4zIDEtNC41IDQuMS0yLjQgNi44LjQgLjUuNyAxLjMuNyAxLjggMCAuOC0uMiAxLjctLjcgMi41LTEuMiAyLjEtMy4zIDMuNS01LjcgNC4yLTMuNiAxLTIuNi0xLjgtMS40LTUtLjgtMi4xLS40LTQuNC0uNS02LjUtLjItMi0uNS0zLjUtLjYtNS40LS41LTIuNC40LTQuNiAxLjctNi4yIDMuNi0yLjQgNC40LTYgNi43LTguNC0zLjUtMy42LTIuNy02LjMtLjktOC4yIDEuMS0xLjIgMy41LTEuNyA1LjQtLjkgMi4xLjkgMy43IDIuNiAzLjcgNC44eiIgZmlsbD0iIzAwMCIgc3Ryb2tlPSIjRkZGIiBzdHJva2Utd2lkdGg9IjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg=="); }
+  .piece-b-p { background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NSAzNyI+PHBhdGggb25jbGljaz0iZGF0YS1wYXRoIiBkPSJNMjIuNSAyNC40YzAtMy0xLjktNS00LjYtNS0yLjQgMC00LjMgMi00LjYgNS0uNSAzLjMuMyA2LjMgMS4zIDcuMi42LjcgMS43LjUgMi43LS4zLjktLjggMS44LTIuNSAxLjgtMy42em0tMTYuOCAwaC0zLjdsMiA2LjRoLTMuNWwtMiA1LjZoLS41bTQzLjUtNi40aC0zLjdsMiA2LjRoLTMuNWwtMiA1LjZoLS41IiBmaWxsPSIjMDAwIiBzdHJva2U9IiNGRkYiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"); }
+</style>
 </head>
 <body>
-  <main class="wrap" role="main">
-    <header>
-      <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
-        <rect x="3" y="3" width="18" height="18" rx="3" ry="3" stroke="currentColor"></rect>
-        <path d="M7 12h10M7 8h10M7 16h6" stroke="currentColor"></path>
-      </svg>
-      <div>
-        <h1>KOTCQ</h1>
-        <p class="lead">KOTCQ — updated, fixed, and resilient single-file page.</p>
-      </div>
-    </header>
+  <div id="chessboard"></div>
+  <div id="game-status"></div>
 
-    <section class="card" aria-labelledby="what">
-      <h2 id="what" style="margin:0 0 8px 0;font-size:1rem;">Quick editor</h2>
-      <label for="title">Title</label>
-      <input id="title" type="text" placeholder="Enter title..." />
+<script>
+(function () {
+  'use strict';
 
-      <label for="body" style="margin-top:10px">Body</label>
-      <textarea id="body" rows="6" placeholder="Type something..."></textarea>
+  const files = ['a','b','c','d','e','f','g','h'];
+  const corners = new Set(['a1','h1','a8','h8']);
+  const boardDiv = document.getElementById('chessboard');
+  const statusDiv = document.getElementById('game-status');
+  let selectedSquare = null;
+  let pieceElements = {}; // sq -> piece element
 
-      <div style="display:flex; gap:8px; margin-top:12px; align-items:center;">
-        <button id="saveBtn" type="button">Save (local)</button>
-        <button id="clearBtn" type="button" style="background:#334155;color:var(--text)">Clear</button>
-        <div id="status" style="margin-left:auto;color:var(--muted);font-size:0.9rem">No changes</div>
-      </div>
+  const game = new Chess();
 
-      <div id="error" class="error hidden" role="status" aria-live="polite"></div>
-    </section>
+  // Track the identity/state of the original queens only
+  // form: 'n' (cursed knight) or 'q' (queen)
+  const cursed = {
+    w: { form: 'n', square: 'd1', alive: true },
+    b: { form: 'n', square: 'd8', alive: true },
+  };
 
-    <section class="card">
-      <h2 style="margin:0 0 8px 0;font-size:1rem;">Saved preview</h2>
-      <pre id="preview">Nothing saved yet</pre>
-      <footer>Data is stored locally in your browser and can be cleared at any time.</footer>
-    </section>
-  </main>
+  // Replace original queens with knights at d1/d8
+  game.remove('d1');
+  game.remove('d8');
+  game.put({ type: 'n', color: 'w' }, 'd1');
+  game.put({ type: 'n', color: 'b' }, 'd8');
 
-  <script>
-    (function () {
-      'use strict';
+  // Build board UI
+  const squares = {};
+  for (let r = 8; r >= 1; r--) {
+    for (let f = 0; f < 8; f++) {
+      const sq = files[f] + r;
+      const div = document.createElement('div');
+      div.classList.add('square');
+      div.classList.add((f + r) % 2 === 0 ? 'light' : 'dark');
+      div.id = sq;
+      boardDiv.appendChild(div);
+      squares[sq] = div;
 
-      // Defensive helpers
-      const $ = (selector) => document.querySelector(selector);
-      const qs = (sel) => Array.from(document.querySelectorAll(sel));
+      div.addEventListener('click', () => {
+        if (selectedSquare) {
+          move(selectedSquare, sq);
+        } else {
+          selectSquare(sq);
+        }
+      });
+    }
+  }
 
-      const titleEl = $('#title');
-      const bodyEl = $('#body');
-      const saveBtn = $('#saveBtn');
-      const clearBtn = $('#clearBtn');
-      const statusEl = $('#status');
-      const previewEl = $('#preview');
-      const errorEl = $('#error');
+  function isCorner(sq) { return corners.has(sq); }
 
-      const STORAGE_KEY = 'kotcq:page:v1';
+  function clearHighlights() {
+    selectedSquare = null;
+    for (const sq in squares) {
+      const el = squares[sq];
+      el.style.outline = '';
+      el.classList.remove('highlight');
+      el.classList.remove('capture');
+    }
+  }
 
-      function showError(msg) {
-        errorEl.textContent = msg;
-        errorEl.classList.remove('hidden');
-        setTimeout(() => errorEl.classList.add('hidden'), 6000);
+  function highlightMoves(sq) {
+    const moves = game.moves({ square: sq, verbose: true });
+    moves.forEach(move => {
+      const targetSquareDiv = squares[move.to];
+      if (!targetSquareDiv) return;
+      targetSquareDiv.classList.add('highlight');
+      if (move.captured) targetSquareDiv.classList.add('capture');
+    });
+  }
+
+  function renderBoard() {
+    // Remove previous piece elements
+    for (const sq in squares) {
+      const squareDiv = squares[sq];
+      const pieceEl = pieceElements[sq];
+      if (pieceEl) {
+        squareDiv.removeChild(pieceEl);
+        delete pieceElements[sq];
       }
+    }
 
-      function setStatus(text) {
-        statusEl.textContent = text;
+    for (const sq in squares) {
+      const piece = game.get(sq);
+      const squareDiv = squares[sq];
+      squareDiv.style.removeProperty('outline');
+
+      if (piece) {
+        const pieceEl = document.createElement('div');
+        pieceEl.classList.add('piece');
+        pieceEl.classList.add(`piece-${piece.color}-${piece.type}`);
+
+        // Apply crown+glow only if this is the cursed knight for that color
+        if (
+          (piece.color === 'w' && cursed.w.alive && cursed.w.form === 'n' && cursed.w.square === sq) ||
+          (piece.color === 'b' && cursed.b.alive && cursed.b.form === 'n' && cursed.b.square === sq)
+        ) {
+          pieceEl.classList.add('crowned', 'cursed-glow');
+        }
+
+        squareDiv.appendChild(pieceEl);
+        pieceElements[sq] = pieceEl;
       }
+    }
+    updateStatus();
+  }
 
-      function load() {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) {
-            setStatus('No saved data');
-            return;
-          }
-          const data = JSON.parse(raw);
-          if (data.title) titleEl.value = data.title;
-          if (data.body) bodyEl.value = data.body;
-          renderPreview(data);
-          setStatus('Loaded from localStorage');
-        } catch (err) {
-          console.error('Load error:', err);
-          showError('Failed to load saved data (corrupt or inaccessible).');
+  function selectSquare(sq) {
+    const piece = game.get(sq);
+    if (!piece) return;
+
+    clearHighlights();
+
+    if (game.turn() === piece.color) {
+      selectedSquare = sq;
+      squares[sq].style.outline = '2px solid yellow';
+      highlightMoves(sq);
+    }
+  }
+
+  function afterMoveMaintenance() {
+    // Detect if a cursed piece got captured on the opponent's previous move
+    ['w','b'].forEach(color => {
+      const state = cursed[color];
+      if (!state.alive) return;
+      const p = game.get(state.square);
+      if (!p || p.color !== color) {
+        state.alive = false; // the original queen was captured
+      }
+    });
+  }
+
+  function move(from, to) {
+    const movingPiece = game.get(from);
+    if (!movingPiece) { clearHighlights(); return; }
+
+    const moveObj = { from, to };
+    if (movingPiece.type === 'p' && (to[1] === '8' || to[1] === '1')) moveObj.promotion = 'q';
+
+    const result = game.move(moveObj);
+    if (!result) { clearHighlights(); return; }
+
+    const mover = result.color; // 'w' or 'b'
+    const state = cursed[mover];
+
+    if (state.alive && state.square === result.from) {
+      if (state.form === 'n') {
+        // Cursed knight moved
+        if (isCorner(result.to) && !isCorner(result.from)) {
+          // Transform to queen only if arriving from non-corner
+          game.remove(result.to);
+          game.put({ type: 'q', color: mover }, result.to);
+          state.form = 'q';
+          state.square = result.to;
+        } else {
+          // Normal move, remain cursed knight
+          state.square = result.to;
+        }
+      } else if (state.form === 'q') {
+        // Queen moved
+        if (result.captured) {
+          // On any capture, transform back to cursed knight at destination
+          game.remove(result.to);
+          game.put({ type: 'n', color: mover }, result.to);
+          state.form = 'n';
+          state.square = result.to;
+        } else {
+          state.square = result.to;
         }
       }
+    }
 
-      function save() {
-        try {
-          const payload = { title: titleEl.value || '', body: bodyEl.value || '', updatedAt: new Date().toISOString() };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-          renderPreview(payload);
-          setStatus('Saved locally');
-        } catch (err) {
-          console.error('Save error:', err);
-          showError('Failed to save to localStorage. Check browser settings.');
-        }
+    clearHighlights();
+    renderBoard();
+    afterMoveMaintenance();
+  }
+
+  function updateStatus() {
+    let status = '';
+    let moveColor = game.turn() === 'w' ? 'White' : 'Black';
+
+    if (game.in_checkmate()) {
+      status = `GAME OVER. ${moveColor} is in checkmate.`;
+      statusDiv.style.color = 'red';
+    } else if (game.in_draw()) {
+      status = 'GAME OVER. Draw.';
+      statusDiv.style.color = 'yellow';
+    } else {
+      status = `${moveColor} to move.`;
+      statusDiv.style.color = 'white';
+      if (game.in_check()) {
+        status += ` (${moveColor} is in Check!)`;
+        statusDiv.style.color = 'orange';
       }
+    }
 
-      function clearAll() {
-        try {
-          localStorage.removeItem(STORAGE_KEY);
-          titleEl.value = '';
-          bodyEl.value = '';
-          previewEl.textContent = 'Nothing saved yet';
-          setStatus('Cleared');
-        } catch (err) {
-          console.error('Clear error:', err);
-          showError('Failed to clear data.');
-        }
-      }
+    statusDiv.textContent = status;
+  }
 
-      function renderPreview(data) {
-        try {
-          const t = data.title ? data.title.trim() : '(no title)';
-          const b = data.body ? data.body.trim() : '(no body)';
-          previewEl.textContent = `Title: ${t}\n\n${b}\n\nSaved: ${data.updatedAt || 'unknown'}`;
-        } catch (err) {
-          console.error('Render error:', err);
-          previewEl.textContent = 'Unable to render preview';
-        }
-      }
-
-      // Wire events safely
-      function addListeners() {
-        if (saveBtn) saveBtn.addEventListener('click', () => { save(); });
-        if (clearBtn) clearBtn.addEventListener('click', () => {
-          if (!confirm('Clear saved data?')) return;
-          clearAll();
-        });
-
-        // auto-save gently (debounced)
-        let timer = 0;
-        [titleEl, bodyEl].forEach(el => {
-          el.addEventListener('input', () => {
-            setStatus('Editing…');
-            clearTimeout(timer);
-            timer = setTimeout(() => {
-              try { save(); } catch (e) { /* already handled in save() */ }
-            }, 900);
-          });
-        });
-      }
-
-      // Init on DOM ready
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => { addListeners(); load(); });
-      } else {
-        addListeners(); load();
-      }
-
-      // Expose for debugging in dev console if needed
-      window.KOTCQ = { load, save, clearAll, STORAGE_KEY };
-    })();
-  </script>
+  // Initial render
+  renderBoard();
+})();
+</script>
 </body>
 </html>
